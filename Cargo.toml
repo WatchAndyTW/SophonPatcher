@@ -1,0 +1,39 @@
+[workspace.package]
+description = "A tool to patch game client with multiple ways"
+
+[workspace]
+members = ["sophon", "patcher"]
+resolver = "2"
+
+[workspace.dependencies]
+indexmap = { version = "2.7.0", features = ["serde"] }
+tokio = { version = "1.42.0", features = ["rt", "rt-multi-thread", "macros", "fs", "process"] }
+prost = "0.13.4"
+prost-types = "0.13.4"
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.133"
+zstd = "0.13.2"
+reqwest = { version = "0.12.9", features = ["stream"] }
+anyhow = "1.0.97"
+futures = "0.3.31"
+rs-leveldb = "0.1.5"
+memmap2 = "0.9.5"
+rayon = "1.10.0"
+zip = "4.0.0"
+tokio-cron-scheduler = "0.14.0"
+chrono-tz = "0.10.0"
+regex = "1.11.1"
+walkdir = "2.5.0"
+rand = "0.8.5"
+serenity = "0.12.4"
+google-drive3 = "6.0.0"
+hyper-rustls = { version = "0.27.6", features = ["http2"] }
+hyper = "1.6.0"
+rustls = { version = "0.23.20", features = ["ring"] }
+indicatif = "0.17"
+
+[profile.release]
+strip = true
+lto = true
+opt-level = 3
+codegen-units = 1

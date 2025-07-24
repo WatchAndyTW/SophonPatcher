@@ -1,0 +1,21 @@
+[package]
+name = "SophonPatcher"
+description = "A tool to patch game client with multiple ways"
+edition = "2024"
+version = "1.0.2"
+
+[dependencies]
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+zip.workspace = true
+indicatif.workspace = true
+rand.workspace = true
+rayon.workspace = true
+futures.workspace = true
+sevenz-rust = "0.6.1"
+thiserror = "2.0.7"
+sophon = { path = "../sophon" }
+walkdir = "2.5.0"
+md5 = "0.7.0"
