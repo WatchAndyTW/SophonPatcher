@@ -1,8 +1,7 @@
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Result};
-use indicatif::{ProgressBar, ProgressStyle};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use indicatif::ProgressBar;
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use tokio::fs;
 use crate::extractor::ArchiveExtractor;
 use crate::hpatchz::HPatchZ;
@@ -19,47 +18,25 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
 
     // Make progress bar
     println!("Extracting {}", hdiff_path.file_name().unwrap().to_string_lossy());
-    let mut bars: Vec<Option<ProgressBar>> = Vec::new();
+    let mut bars: Vec<ProgressBar> = Vec::new();
     let mut progress_bar: Option<ProgressBar> = None;
 
     // Extract hdiff file
     ArchiveExtractor::extract_with_progress(&hdiff_path, game_path, |cur, max| {
         let pb = progress_bar.get_or_insert_with(|| {
-            let pb = ProgressBar::new(max as u64);
-            pb.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
-                    .expect("Failed to set progress bar template")
-                    .progress_chars("#>-"),
-            );
-            pb
+            util::create_progress_bar(max as u64)
         });
         pb.set_position(cur as u64);
     })?;
-    bars.push(progress_bar);
+    bars.push(progress_bar.unwrap());
 
     // Load hdiff map
+    println!("Patching game files");
     let hdiff_map = load_diff_map(&game_path).await?;
 
-    // Create another progress bar
-    println!("Patching game files");
-    let progress_bar: Arc<Mutex<Option<ProgressBar>>> = Arc::new(Mutex::new(None));
-    let err_list: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-
     // Patch game files
-    hdiff_map.diff_map.par_iter().for_each(|data| {
-        // Increase progress bar
-        let mut progress_bar = progress_bar.lock().unwrap();
-        let pb = progress_bar.get_or_insert_with(|| {
-            let pb = ProgressBar::new(hdiff_map.diff_map.len() as u64);
-            pb.set_style(
-                ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
-                    .expect("Failed to set progress bar template")
-                    .progress_chars("#>-"),
-            );
-            pb
-        });
+    let pb = util::create_progress_bar(hdiff_map.diff_map.len() as u64);
+    hdiff_map.diff_map.into_par_iter().for_each(|data| {
         pb.inc(1u64);
 
         // Check if source file exist
@@ -77,19 +54,14 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
         // Run hpatchz
         let target_path = game_path.join(&data.target_file_name);
         if let Err(_) = HPatchZ::apply_patch(&source_path, &patch_path, &target_path) {
-            err_list.lock().unwrap().push(data.source_file_name.clone());
+            eprintln!("{} failed to patch!", &data.source_file_name);
             return;
         }
 
         // Delete hdiff file
         std::fs::remove_file(patch_path).unwrap();
     });
-    bars.push(progress_bar.lock().unwrap().clone());
-
-    // Print error list
-    err_list.lock().unwrap().iter().for_each(|file| {
-        eprintln!("{file} failed to patch!");
-    });
+    bars.push(pb);
 
     // Remove files in deletefiles.txt
     if let Ok(deletes) = DeleteFiles::from(&game_path.join("deletefiles.txt")) {
@@ -109,20 +81,9 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
     // Verify file integrity
     let verify = util::input("Hdiff patching done, verify file integrity? (Y/n) [n]: ");
     if verify.to_lowercase() == "y" || verify.to_lowercase() == "yes" {
-        let progress_bar: Arc<Mutex<Option<ProgressBar>>> = Arc::new(Mutex::new(None));
         let pkg_version = PkgVersion::from(&game_path.join("pkg_version"))?;
-        pkg_version.par_iter().for_each(|file| {
-            let mut progress_bar = progress_bar.lock().unwrap();
-            let pb = progress_bar.get_or_insert_with(|| {
-                let pb = ProgressBar::new(pkg_version.len() as u64);
-                pb.set_style(
-                    ProgressStyle::default_bar()
-                        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
-                        .expect("Failed to set progress bar template")
-                        .progress_chars("#>-"),
-                );
-                pb
-            });
+        let pb = util::create_progress_bar(pkg_version.len() as u64);
+        pkg_version.into_par_iter().for_each(|file| {
             pb.inc(1u64);
 
             let file_path = game_path.join(&file.remote_file);
@@ -135,9 +96,11 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
                         &md5,
                     );
                 }
+            } else {
+                println!("{} does not exist!", &file.remote_file);
             }
         });
-        bars.push(progress_bar.lock().unwrap().clone());
+        bars.push(pb);
     }
 
     // Delete hdiff file

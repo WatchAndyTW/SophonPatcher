@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
+use indicatif::{ProgressBar, ProgressStyle};
 use md5::Context;
 
 pub fn input(text: &str) -> String {
@@ -44,4 +45,15 @@ pub fn calculate_md5_hash<P: AsRef<Path>>(file_path: P) -> Result<String, io::Er
     // Compute final hash and convert to hex string
     let digest = context.compute();
     Ok(format!("{:x}", digest))
+}
+
+pub fn create_progress_bar(len: u64) -> ProgressBar {
+    let pb = ProgressBar::new(len);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
+            .expect("Failed to set progress bar template")
+            .progress_chars("#>-"),
+    );
+    pb
 }
