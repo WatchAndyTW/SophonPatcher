@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::fs;
 use std::io::Write;
-use std::os::windows::process::CommandExt;
 use anyhow::{Result, Context};
 
 // Global static for the extracted executable path
@@ -102,7 +101,8 @@ impl HPatchZ {
         let exe_path = Self::get_exe_path()?;
 
         let output = Command::new(exe_path)
-            .raw_arg("-f \"\"")
+            .arg("-f")
+            .arg("")
             .arg(diff_file.as_ref())
             .arg(new_file.as_ref())
             .output()

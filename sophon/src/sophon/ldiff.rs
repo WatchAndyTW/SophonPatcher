@@ -9,6 +9,7 @@ use crate::proto::sophon::Asset;
 pub async fn ldiff_file(
     data: &Asset,
     asset_name: &str,
+    asset_size: i64,
     ldiffs_dir: &Path,
     output_dir: &Path,
 ) -> Result<()> {
@@ -84,8 +85,9 @@ pub async fn ldiff_file(
     };
 
     // Write assembled asset with proper error handling
-    // TODO: HSR diffing empty file issue, fixed for patcher already
-    let extension = if data.original_file_size == 0 { "" } else { ".hdiff" };
+    let extension = if data.original_file_size != 0 || asset_size != data.hdiff_file_size {
+        ".hdiff"
+    } else { "" };
     let asset_path = output_dir.join(format!("{}{}", asset_name, extension));
 
     // Create parent directories if needed

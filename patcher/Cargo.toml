@@ -2,7 +2,7 @@
 name = "SophonPatcher"
 description = "A tool to patch game client with multi ways"
 edition = "2024"
-version = "1.0.3"
+version = "1.0.4"
 
 [dependencies]
 tokio.workspace = true

@@ -40,16 +40,19 @@ pub async fn ldiff(game_path: &Path, ldiff_folder: String, manifest_name: String
                         .iter()
                         .find(|asset| asset.chunk_file_name == asset_name);
                     if let Some(asset) = asset {
-                        return Some((asset_group.asset_name.clone(), asset.clone()));
+                        let asset_name = asset_group.asset_name.clone();
+                        let asset_size = asset_group.asset_size.clone();
+                        return Some((asset_name, asset_size, asset.clone()));
                     }
                 }
                 None
             })
             .collect::<Vec<_>>();
-        for (name, asset) in matching_assets {
+        for (asset_name, asset_size, asset) in matching_assets {
             ldiff_file(
                 &asset,
-                &name,
+                &asset_name,
+                asset_size,
                 &ldiff_path,
                 &game_path,
             ).await?;
@@ -96,16 +99,14 @@ pub async fn ldiff(game_path: &Path, ldiff_folder: String, manifest_name: String
             }
             std::fs::remove_file(patch_path).unwrap();
         } else {
-            let target_path = game_path.join(format!("{}.1", data.target_file_name));
+            let target_path = game_path.join(&data.target_file_name);
             if let Err(_) = HPatchZ::apply_patch_empty(&patch_path, &target_path) {
                 eprintln!("{} failed to patch!", &data.target_file_name);
                 std::fs::remove_file(&patch_path).unwrap();
                 return;
             }
 
-            let new_target = game_path.join(&data.target_file_name);
-            std::fs::remove_file(&new_target).unwrap();
-            std::fs::rename(target_path, new_target).unwrap();
+            std::fs::remove_file(&patch_path).unwrap();
         }
     });
     bars.push(pb);
@@ -161,17 +162,11 @@ async fn make_diff_map(
                 .iter()
                 .filter(|&asset| chunk_names.iter().any(|name| name == &asset.chunk_file_name))
                 .filter_map(|asset| {
-                    if asset.original_file_size != 0 {
+                    if asset.original_file_size != 0 || asset.hdiff_file_size != asset_size {
                         Some(HDiffData {
                             source_file_name: asset.original_file_path.clone(),
                             target_file_name: asset_name.clone(),
                             patch_file_name: format!("{asset_name}.hdiff"),
-                        })
-                    } else if asset.hdiff_file_size != asset_size {
-                        Some(HDiffData {
-                            source_file_name: String::new(),
-                            target_file_name: asset_name.clone(),
-                            patch_file_name: asset_name.clone(),
                         })
                     } else {
                         None

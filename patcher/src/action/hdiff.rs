@@ -39,12 +39,6 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
     hdiff_map.diff_map.into_par_iter().for_each(|data| {
         pb.inc(1u64);
 
-        // Check if source file exist
-        let source_path = game_path.join(&data.source_file_name);
-        if !source_path.exists() {
-            return;
-        }
-
         // Check if patch file exist
         let patch_path = game_path.join(&data.patch_file_name);
         if !patch_path.exists() {
@@ -52,14 +46,33 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
         }
 
         // Run hpatchz
-        let target_path = game_path.join(&data.target_file_name);
-        if let Err(_) = HPatchZ::apply_patch(&source_path, &patch_path, &target_path) {
-            eprintln!("{} failed to patch!", &data.source_file_name);
-            return;
-        }
+        if !data.source_file_name.is_empty() {
+            let source_path = game_path.join(&data.source_file_name);
+            if !source_path.exists() {
+                return;
+            }
 
-        // Delete hdiff file
-        std::fs::remove_file(patch_path).unwrap();
+            let target_path = game_path.join(&data.target_file_name);
+            if let Err(_) = HPatchZ::apply_patch(&source_path, &patch_path, &target_path) {
+                eprintln!("{} failed to patch!", &data.target_file_name);
+                std::fs::remove_file(&patch_path).unwrap();
+                return;
+            }
+
+            if data.source_file_name != data.target_file_name {
+                std::fs::remove_file(&source_path).unwrap();
+            }
+            std::fs::remove_file(patch_path).unwrap();
+        } else {
+            let target_path = game_path.join(&data.target_file_name);
+            if let Err(_) = HPatchZ::apply_patch_empty(&patch_path, &target_path) {
+                eprintln!("{} failed to patch!", &data.target_file_name);
+                std::fs::remove_file(&patch_path).unwrap();
+                return;
+            }
+
+            std::fs::remove_file(&patch_path).unwrap();
+        }
     });
     bars.push(pb);
 
