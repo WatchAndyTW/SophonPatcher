@@ -46,7 +46,17 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
         }
 
         // Run hpatchz
-        if !data.source_file_name.is_empty() {
+        let source_path = game_path.join(&data.source_file_name);
+        if data.source_file_name.is_empty() || !source_path.exists() {
+            let target_path = game_path.join(&data.target_file_name);
+            if let Err(_) = HPatchZ::apply_patch_empty(&patch_path, &target_path) {
+                eprintln!("{} failed to patch!", &data.target_file_name);
+                std::fs::remove_file(&patch_path).unwrap();
+                return;
+            }
+
+            std::fs::remove_file(&patch_path).unwrap();
+        } else {
             let source_path = game_path.join(&data.source_file_name);
             if !source_path.exists() {
                 return;
@@ -63,15 +73,6 @@ pub async fn hdiff(game_path: &Path, hdiff_file: String) -> Result<()> {
                 std::fs::remove_file(&source_path).unwrap();
             }
             std::fs::remove_file(patch_path).unwrap();
-        } else {
-            let target_path = game_path.join(&data.target_file_name);
-            if let Err(_) = HPatchZ::apply_patch_empty(&patch_path, &target_path) {
-                eprintln!("{} failed to patch!", &data.target_file_name);
-                std::fs::remove_file(&patch_path).unwrap();
-                return;
-            }
-
-            std::fs::remove_file(&patch_path).unwrap();
         }
     });
     bars.push(pb);
