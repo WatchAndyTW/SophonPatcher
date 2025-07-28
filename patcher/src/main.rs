@@ -41,15 +41,11 @@ async fn main() {
             let game_folder = args.get(2)
                 .map(|s| s.clone())
                 .unwrap_or_else(|| util::input("Please enter game folder: "));
-            let ldiff_folder = args.get(3)
-                .map(|s| s.clone())
-                .unwrap_or_else(|| util::input("Please enter ldiff folder: "));
             if let Err(err) = action::ldiff(
                 &Path::new(&game_folder),
-                ldiff_folder,
-                args.get(4)
+                args.get(3)
                     .map(|s| s.clone())
-                    .unwrap_or_else(|| util::input("Please enter manifest name: ")),
+                    .unwrap_or_else(|| util::input("Please enter ldiff folder: ")),
             ).await {
                 println!("{}", err);
             }
